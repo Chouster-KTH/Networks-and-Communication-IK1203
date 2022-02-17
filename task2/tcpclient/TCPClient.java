@@ -4,7 +4,6 @@ import java.io.*;
 
 public class TCPClient
 {
-
     public boolean shutdown;
     public Integer timeout;
     public Integer limit;
@@ -24,26 +23,25 @@ public class TCPClient
         }
         fromServerBuffer = new byte[bufferSize];
         inputBuffer = new ByteArrayOutputStream();
-
     }
 
     public byte[] askServer(String hostname, int port, byte[] toServerBytes) throws IOException
     {
         Socket socket = new Socket(hostname, port);
-
         try
         {
-
             if (timeout != null)
             {
                 socket.setSoTimeout(timeout);
             }
+
             socket.getOutputStream().write(toServerBytes);
+
             if (shutdown)
             {
-                socket.close();
-                return inputBuffer.toByteArray();
+                socket.shutdownOutput();
             }
+
             int fromServerLength;
             while ((fromServerLength = socket.getInputStream().read(fromServerBuffer, 0, bufferSize)) != -1)
             {
@@ -58,12 +56,11 @@ public class TCPClient
             socket.close();
 
         }
+
         if (limit != null && inputBuffer.size() >= limit)
         {
             socket.close();
         }
         return inputBuffer.toByteArray();
-
     }
-
 }
