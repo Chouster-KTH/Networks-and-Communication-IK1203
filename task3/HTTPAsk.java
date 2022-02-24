@@ -3,7 +3,70 @@ import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import tcpclient.TCPClient;
+
+class TCPClient
+{
+    public boolean shutdown;
+    public Integer timeout;
+    public Integer limit;
+    private final byte[] fromServerBuffer;
+    private final ByteArrayOutputStream inputBuffer;
+    private int bufferSize;
+
+    public TCPClient(boolean shutdown, Integer timeout, Integer limit)
+    {
+        this.shutdown = shutdown;
+        this.timeout = timeout;
+        this.limit = limit;
+        this.bufferSize = 1024;
+        if (limit != null)
+        {
+            bufferSize = limit;
+        }
+        fromServerBuffer = new byte[bufferSize];
+        inputBuffer = new ByteArrayOutputStream();
+    }
+
+    public byte[] askServer(String hostname, int port, byte[] toServerBytes) throws IOException
+    {
+        Socket socket = new Socket(hostname, port);
+        try
+        {
+            if (timeout != null)
+            {
+                socket.setSoTimeout(timeout);
+            }
+
+            socket.getOutputStream().write(toServerBytes);
+
+            if (shutdown)
+            {
+                System.out.println("SHUTDOWN" + "hn" + hostname + " port " + port + "timeout " + timeout);
+                socket.shutdownOutput();
+            }
+
+            int fromServerLength;
+            while ((fromServerLength = socket.getInputStream().read(fromServerBuffer, 0, bufferSize)) != -1)
+            {
+                inputBuffer.write(fromServerBuffer, 0, fromServerLength);
+                if (limit != null && inputBuffer.size() >= limit)
+                {
+                    break;
+                }
+            }
+        } catch (SocketTimeoutException ex)
+        {
+            socket.close();
+        }
+
+        if (limit != null && inputBuffer.size() >= limit)
+        {
+            socket.close();
+        }
+        System.out.println(inputBuffer);
+        return inputBuffer.toByteArray();
+    }
+}
 
 public class HTTPAsk
 {
@@ -38,7 +101,7 @@ public class HTTPAsk
                     String[] parametersArray = split.split("&");
                     String hostname = null;
                     Integer userPort = null;
-                    byte[] userInputBytes = new byte[0]; 
+                    byte[] userInputBytes = new byte[0];
                     boolean shutdown = false;
                     Integer limit = null;
                     Integer timeout = null;
@@ -84,7 +147,7 @@ public class HTTPAsk
                     }
                     try
                     {
-                        TCPClient tcpClient = new tcpclient.TCPClient(shutdown, timeout, limit);
+                        TCPClient tcpClient = new TCPClient(shutdown, timeout, limit);
                         byte[] serverBytes = tcpClient.askServer(hostname, userPort, userInputBytes);
                         String serverOutput = new String(serverBytes);
                         if ("".equals(serverOutput))
